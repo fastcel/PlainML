@@ -128,6 +128,7 @@ typedef struct {
     int connection_count;
 
     double bias;
+    double output;
 } Neuron;
 
 typedef struct {
@@ -198,6 +199,7 @@ void start_neuron(char *name)
     current_neuron->name = name;
     current_neuron->connection_count = 0;
     current_neuron->bias = 0.0;
+    current_neuron->output = 0.0;
 
     current_layer->neuron_count++;
 }
@@ -367,6 +369,149 @@ void print_network(char *name)
     }
 }
 
+/* ---------- Network Execution ---------- */
+
+double apply_activation(ActivationType activation, double value)
+{
+    switch (activation) {
+
+        case ACT_RELU:
+            return value > 0.0 ? value : 0.0;
+
+        case ACT_STEP:
+            return value >= 0.0 ? 1.0 : 0.0;
+
+        default:
+            return value;
+    }
+}
+
+double get_source_value(int layer_index, const char *source_name)
+{
+    /*
+     * First layer reads directly from network inputs.
+     */
+    if (layer_index == 0) {
+
+        int input_index = find_input_index(source_name);
+
+        if (input_index == -1) {
+            fprintf(
+                stderr,
+                "Runtime error: unknown input '%s'\n",
+                source_name
+            );
+
+            exit(1);
+        }
+
+        return input_values[input_index];
+    }
+
+    /*
+     * Later layers read outputs from neurons
+     * in the previous layer.
+     */
+    Layer *previous_layer = &layers[layer_index - 1];
+
+    for (int i = 0; i < previous_layer->neuron_count; i++) {
+
+        Neuron *neuron = &previous_layer->neurons[i];
+
+        if (strcmp(neuron->name, source_name) == 0) {
+            return neuron->output;
+        }
+    }
+
+    fprintf(
+        stderr,
+        "Runtime error: source '%s' not found\n",
+        source_name
+    );
+
+    exit(1);
+}
+
+void run_network(void)
+{
+    /*
+     * All declared inputs must receive a value.
+     */
+    for (int i = 0; i < input_count; i++) {
+
+        if (!input_value_set[i]) {
+            fprintf(
+                stderr,
+                "Semantic error: no value provided for input '%s'\n",
+                input_names[i]
+            );
+
+            exit(1);
+        }
+    }
+
+    /*
+     * Execute layers from first to last.
+     */
+    for (int i = 0; i < layer_count; i++) {
+
+        Layer *layer = &layers[i];
+
+        for (int j = 0; j < layer->neuron_count; j++) {
+
+            Neuron *neuron = &layer->neurons[j];
+
+            /*
+             * A neuron's weighted sum starts with its bias.
+             */
+            double sum = neuron->bias;
+
+            /*
+             * Add source_value * weight for every connection.
+             */
+            for (int k = 0; k < neuron->connection_count; k++) {
+
+                Connection *connection =
+                    &neuron->connections[k];
+
+                double source_value =
+                    get_source_value(
+                        i,
+                        connection->source_name
+                    );
+
+                sum += source_value * connection->weight;
+            }
+
+            /*
+             * Apply the activation assigned to the layer.
+             */
+            neuron->output =
+                apply_activation(
+                    layer->activation,
+                    sum
+                );
+        }
+    }
+
+    /*
+     * The final layer contains the prediction output.
+     */
+    Layer *output_layer =
+        &layers[layer_count - 1];
+
+    printf("\nPrediction:\n");
+
+    for (int i = 0; i < output_layer->neuron_count; i++) {
+
+        printf(
+            "  %s = %.4f\n",
+            output_layer->neurons[i].name,
+            output_layer->neurons[i].output
+        );
+    }
+}
+
 /* ---------- Memory Cleanup ---------- */
 
 void cleanup_network(char *name)
@@ -397,7 +542,7 @@ void cleanup_network(char *name)
 }
 
 
-#line 401 "parser.tab.c"
+#line 546 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -852,9 +997,9 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   363,   363,   372,   382,   386,   388,   392,   401,   403,
-     407,   414,   423,   428,   437,   439,   443,   450,   459,   463,
-     465,   469,   476,   485,   506,   508,   512
+       0,   508,   508,   517,   527,   531,   533,   537,   546,   548,
+     552,   559,   568,   573,   582,   584,   588,   595,   604,   608,
+     610,   614,   621,   630,   652,   654,   658
 };
 #endif
 
@@ -1451,96 +1596,96 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* program: network_definition predict_statement  */
-#line 364 "parser.y"
+#line 509 "parser.y"
     {
         cleanup_network(network_name);
     }
-#line 1459 "parser.tab.c"
+#line 1604 "parser.tab.c"
     break;
 
   case 3: /* network_definition: NETWORK IDENTIFIER '{' inputs_block layer_list '}'  */
-#line 373 "parser.y"
+#line 518 "parser.y"
     {
         network_name = (yyvsp[-4].text);
         print_network(network_name);
     }
-#line 1468 "parser.tab.c"
+#line 1613 "parser.tab.c"
     break;
 
   case 7: /* input_decl: IDENTIFIER ';'  */
-#line 393 "parser.y"
+#line 538 "parser.y"
     {
         add_input((yyvsp[-1].text));
     }
-#line 1476 "parser.tab.c"
+#line 1621 "parser.tab.c"
     break;
 
   case 10: /* layer_decl: layer_header '{' neuron_list '}'  */
-#line 408 "parser.y"
+#line 553 "parser.y"
     {
         current_layer = NULL;
     }
-#line 1484 "parser.tab.c"
+#line 1629 "parser.tab.c"
     break;
 
   case 11: /* layer_header: LAYER IDENTIFIER ACTIVATION activation_type  */
-#line 415 "parser.y"
+#line 560 "parser.y"
     {
         start_layer((yyvsp[-2].text), (yyvsp[0].activation));
     }
-#line 1492 "parser.tab.c"
+#line 1637 "parser.tab.c"
     break;
 
   case 12: /* activation_type: RELU  */
-#line 424 "parser.y"
+#line 569 "parser.y"
     {
         (yyval.activation) = ACT_RELU;
     }
-#line 1500 "parser.tab.c"
+#line 1645 "parser.tab.c"
     break;
 
   case 13: /* activation_type: STEP  */
-#line 429 "parser.y"
+#line 574 "parser.y"
     {
         (yyval.activation) = ACT_STEP;
     }
-#line 1508 "parser.tab.c"
+#line 1653 "parser.tab.c"
     break;
 
   case 16: /* neuron_decl: neuron_header '{' neuron_body '}'  */
-#line 444 "parser.y"
+#line 589 "parser.y"
     {
         current_neuron = NULL;
     }
-#line 1516 "parser.tab.c"
+#line 1661 "parser.tab.c"
     break;
 
   case 17: /* neuron_header: NEURON IDENTIFIER  */
-#line 451 "parser.y"
+#line 596 "parser.y"
     {
         start_neuron((yyvsp[0].text));
     }
-#line 1524 "parser.tab.c"
+#line 1669 "parser.tab.c"
     break;
 
   case 21: /* connection_decl: IDENTIFIER WEIGHT NUMBER ';'  */
-#line 470 "parser.y"
+#line 615 "parser.y"
     {
         add_connection((yyvsp[-3].text), (yyvsp[-1].number));
     }
-#line 1532 "parser.tab.c"
+#line 1677 "parser.tab.c"
     break;
 
   case 22: /* bias_decl: BIAS NUMBER ';'  */
-#line 477 "parser.y"
+#line 622 "parser.y"
     {
         set_bias((yyvsp[-1].number));
     }
-#line 1540 "parser.tab.c"
+#line 1685 "parser.tab.c"
     break;
 
   case 23: /* predict_statement: PREDICT IDENTIFIER WITH '{' input_value_list '}'  */
-#line 486 "parser.y"
+#line 631 "parser.y"
     {
         if (strcmp((yyvsp[-4].text), network_name) != 0) {
 
@@ -1557,20 +1702,21 @@ yyreduce:
         free((yyvsp[-4].text));
 
         print_prediction_inputs();
+        run_network();
     }
-#line 1562 "parser.tab.c"
+#line 1708 "parser.tab.c"
     break;
 
   case 26: /* input_value: IDENTIFIER '=' NUMBER ';'  */
-#line 513 "parser.y"
+#line 659 "parser.y"
     {
         set_input_value((yyvsp[-3].text), (yyvsp[-1].number));
     }
-#line 1570 "parser.tab.c"
+#line 1716 "parser.tab.c"
     break;
 
 
-#line 1574 "parser.tab.c"
+#line 1720 "parser.tab.c"
 
       default: break;
     }
@@ -1763,7 +1909,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 518 "parser.y"
+#line 664 "parser.y"
 
 
 void yyerror(const char *s)
@@ -1829,16 +1975,14 @@ int source_is_valid(const char *source_name)
     int layer_index = get_current_layer_index();
 
     /*
-     * First layer:
-     * sources must be declared inputs.
+     * First layer sources must be declared inputs.
      */
     if (layer_index == 0) {
         return input_exists(source_name);
     }
 
     /*
-     * Later layers:
-     * sources must be neurons from the previous layer.
+     * Later layers may use neurons from the previous layer.
      */
     if (layer_index > 0) {
 

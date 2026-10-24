@@ -58,6 +58,7 @@ typedef struct {
     int connection_count;
 
     double bias;
+    double output;
 } Neuron;
 
 typedef struct {
@@ -128,6 +129,7 @@ void start_neuron(char *name)
     current_neuron->name = name;
     current_neuron->connection_count = 0;
     current_neuron->bias = 0.0;
+    current_neuron->output = 0.0;
 
     current_layer->neuron_count++;
 }
@@ -294,6 +296,149 @@ void print_network(char *name)
 
             printf("    bias %.2f\n", neuron->bias);
         }
+    }
+}
+
+/* ---------- Network Execution ---------- */
+
+double apply_activation(ActivationType activation, double value)
+{
+    switch (activation) {
+
+        case ACT_RELU:
+            return value > 0.0 ? value : 0.0;
+
+        case ACT_STEP:
+            return value >= 0.0 ? 1.0 : 0.0;
+
+        default:
+            return value;
+    }
+}
+
+double get_source_value(int layer_index, const char *source_name)
+{
+    /*
+     * First layer reads directly from network inputs.
+     */
+    if (layer_index == 0) {
+
+        int input_index = find_input_index(source_name);
+
+        if (input_index == -1) {
+            fprintf(
+                stderr,
+                "Runtime error: unknown input '%s'\n",
+                source_name
+            );
+
+            exit(1);
+        }
+
+        return input_values[input_index];
+    }
+
+    /*
+     * Later layers read outputs from neurons
+     * in the previous layer.
+     */
+    Layer *previous_layer = &layers[layer_index - 1];
+
+    for (int i = 0; i < previous_layer->neuron_count; i++) {
+
+        Neuron *neuron = &previous_layer->neurons[i];
+
+        if (strcmp(neuron->name, source_name) == 0) {
+            return neuron->output;
+        }
+    }
+
+    fprintf(
+        stderr,
+        "Runtime error: source '%s' not found\n",
+        source_name
+    );
+
+    exit(1);
+}
+
+void run_network(void)
+{
+    /*
+     * All declared inputs must receive a value.
+     */
+    for (int i = 0; i < input_count; i++) {
+
+        if (!input_value_set[i]) {
+            fprintf(
+                stderr,
+                "Semantic error: no value provided for input '%s'\n",
+                input_names[i]
+            );
+
+            exit(1);
+        }
+    }
+
+    /*
+     * Execute layers from first to last.
+     */
+    for (int i = 0; i < layer_count; i++) {
+
+        Layer *layer = &layers[i];
+
+        for (int j = 0; j < layer->neuron_count; j++) {
+
+            Neuron *neuron = &layer->neurons[j];
+
+            /*
+             * A neuron's weighted sum starts with its bias.
+             */
+            double sum = neuron->bias;
+
+            /*
+             * Add source_value * weight for every connection.
+             */
+            for (int k = 0; k < neuron->connection_count; k++) {
+
+                Connection *connection =
+                    &neuron->connections[k];
+
+                double source_value =
+                    get_source_value(
+                        i,
+                        connection->source_name
+                    );
+
+                sum += source_value * connection->weight;
+            }
+
+            /*
+             * Apply the activation assigned to the layer.
+             */
+            neuron->output =
+                apply_activation(
+                    layer->activation,
+                    sum
+                );
+        }
+    }
+
+    /*
+     * The final layer contains the prediction output.
+     */
+    Layer *output_layer =
+        &layers[layer_count - 1];
+
+    printf("\nPrediction:\n");
+
+    for (int i = 0; i < output_layer->neuron_count; i++) {
+
+        printf(
+            "  %s = %.4f\n",
+            output_layer->neurons[i].name,
+            output_layer->neurons[i].output
+        );
     }
 }
 
@@ -499,6 +644,7 @@ predict_statement:
         free($2);
 
         print_prediction_inputs();
+        run_network();
     }
 ;
 
@@ -580,16 +726,14 @@ int source_is_valid(const char *source_name)
     int layer_index = get_current_layer_index();
 
     /*
-     * First layer:
-     * sources must be declared inputs.
+     * First layer sources must be declared inputs.
      */
     if (layer_index == 0) {
         return input_exists(source_name);
     }
 
     /*
-     * Later layers:
-     * sources must be neurons from the previous layer.
+     * Later layers may use neurons from the previous layer.
      */
     if (layer_index > 0) {
 
