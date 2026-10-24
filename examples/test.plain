@@ -24,3 +24,9 @@ network student_success {
         }
     }
 }
+
+predict student_success with {
+    attendance = 0.82;
+    study_hours = 0.60;
+    assignments = 0.80;
+}

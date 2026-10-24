@@ -61,10 +61,12 @@ extern int yydebug;
     NEURON = 262,                  /* NEURON  */
     WEIGHT = 263,                  /* WEIGHT  */
     BIAS = 264,                    /* BIAS  */
-    RELU = 265,                    /* RELU  */
-    STEP = 266,                    /* STEP  */
-    IDENTIFIER = 267,              /* IDENTIFIER  */
-    NUMBER = 268                   /* NUMBER  */
+    PREDICT = 265,                 /* PREDICT  */
+    WITH = 266,                    /* WITH  */
+    RELU = 267,                    /* RELU  */
+    STEP = 268,                    /* STEP  */
+    IDENTIFIER = 269,              /* IDENTIFIER  */
+    NUMBER = 270                   /* NUMBER  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -73,13 +75,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 231 "parser.y"
+#line 333 "parser.y"
 
     char *text;
     int activation;
     double number;
 
-#line 83 "parser.tab.h"
+#line 85 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

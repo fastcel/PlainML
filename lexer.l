@@ -15,6 +15,8 @@
 "bias"                          { return BIAS; }
 "relu"                          { return RELU; }
 "step"                          { return STEP; }
+"predict"                       { return PREDICT; }
+"with"                          { return WITH; }
 
 -?[0-9]+(\.[0-9]+)?             {
                                     yylval.number = atof(yytext);
@@ -28,6 +30,7 @@
 
 "{"                             { return '{'; }
 "}"                             { return '}'; }
+"="                             { return '='; }
 ";"                             { return ';'; }
 
 [ \t\r\n]+                      { /* ignore whitespace */ }

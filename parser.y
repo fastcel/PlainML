@@ -11,9 +11,18 @@
 int yylex(void);
 void yyerror(const char *s);
 
+int input_exists(const char *name);
+int find_input_index(const char *name);
+int neuron_exists_in_layer(int layer_index, const char *name);
+int get_current_layer_index(void);
+int source_is_valid(const char *source_name);
+
 /* ---------- Inputs ---------- */
 
 char *input_names[MAX_INPUTS];
+double input_values[MAX_INPUTS];
+int input_value_set[MAX_INPUTS];
+
 int input_count = 0;
 
 void add_input(char *name)
@@ -23,7 +32,11 @@ void add_input(char *name)
         exit(1);
     }
 
-    input_names[input_count++] = name;
+    input_names[input_count] = name;
+    input_values[input_count] = 0.0;
+    input_value_set[input_count] = 0;
+
+    input_count++;
 }
 
 /* ---------- Neural Network Structures ---------- */
@@ -62,6 +75,8 @@ int layer_count = 0;
 
 Layer *current_layer = NULL;
 Neuron *current_neuron = NULL;
+
+char *network_name = NULL;
 
 /* ---------- Helper Functions ---------- */
 
@@ -121,16 +136,47 @@ void add_connection(char *source_name, double weight)
 {
     if (current_neuron == NULL) {
         fprintf(stderr, "Error: connection outside neuron\n");
+        free(source_name);
+        exit(1);
+    }
+
+    if (!source_is_valid(source_name)) {
+
+        int layer_index = get_current_layer_index();
+
+        if (layer_index == 0) {
+            fprintf(
+                stderr,
+                "Semantic error: '%s' is not a declared input "
+                "for neuron '%s'\n",
+                source_name,
+                current_neuron->name
+            );
+        }
+        else {
+            fprintf(
+                stderr,
+                "Semantic error: '%s' is not a neuron "
+                "in the previous layer for neuron '%s'\n",
+                source_name,
+                current_neuron->name
+            );
+        }
+
+        free(source_name);
         exit(1);
     }
 
     if (current_neuron->connection_count >= MAX_CONNECTIONS) {
         fprintf(stderr, "Error: too many connections\n");
+        free(source_name);
         exit(1);
     }
 
     Connection *connection =
-        &current_neuron->connections[current_neuron->connection_count];
+        &current_neuron->connections[
+            current_neuron->connection_count
+        ];
 
     connection->source_name = source_name;
     connection->weight = weight;
@@ -148,11 +194,67 @@ void set_bias(double bias)
     current_neuron->bias = bias;
 }
 
+/* ---------- Prediction Input Handling ---------- */
+
+void set_input_value(char *name, double value)
+{
+    int index = find_input_index(name);
+
+    if (index == -1) {
+        fprintf(
+            stderr,
+            "Semantic error: '%s' is not a declared input\n",
+            name
+        );
+
+        free(name);
+        exit(1);
+    }
+
+    if (input_value_set[index]) {
+        fprintf(
+            stderr,
+            "Semantic error: input '%s' was provided more than once\n",
+            name
+        );
+
+        free(name);
+        exit(1);
+    }
+
+    input_values[index] = value;
+    input_value_set[index] = 1;
+
+    free(name);
+}
+
+void print_prediction_inputs(void)
+{
+    printf("\nPrediction inputs:\n");
+
+    for (int i = 0; i < input_count; i++) {
+
+        if (input_value_set[i]) {
+            printf(
+                "  %s = %.4f\n",
+                input_names[i],
+                input_values[i]
+            );
+        }
+        else {
+            printf(
+                "  %s = <missing>\n",
+                input_names[i]
+            );
+        }
+    }
+}
+
 /* ---------- Printing ---------- */
 
-void print_network(char *network_name)
+void print_network(char *name)
 {
-    printf("Parsed network: %s\n", network_name);
+    printf("Parsed network: %s\n", name);
 
     printf("\nInputs:\n");
 
@@ -197,7 +299,7 @@ void print_network(char *network_name)
 
 /* ---------- Memory Cleanup ---------- */
 
-void cleanup_network(char *network_name)
+void cleanup_network(char *name)
 {
     for (int i = 0; i < input_count; i++) {
         free(input_names[i]);
@@ -221,7 +323,7 @@ void cleanup_network(char *network_name)
         free(layer->name);
     }
 
-    free(network_name);
+    free(name);
 }
 
 %}
@@ -243,6 +345,8 @@ void cleanup_network(char *network_name)
 %token NEURON
 %token WEIGHT
 %token BIAS
+%token PREDICT
+%token WITH
 %token RELU
 %token STEP
 
@@ -256,10 +360,19 @@ void cleanup_network(char *network_name)
 /* ---------- Program ---------- */
 
 program:
+    network_definition predict_statement
+    {
+        cleanup_network(network_name);
+    }
+;
+
+/* ---------- Network Definition ---------- */
+
+network_definition:
     NETWORK IDENTIFIER '{' inputs_block layer_list '}'
     {
-        print_network($2);
-        cleanup_network($2);
+        network_name = $2;
+        print_network(network_name);
     }
 ;
 
@@ -366,11 +479,127 @@ bias_decl:
     }
 ;
 
+/* ---------- Prediction ---------- */
+
+predict_statement:
+    PREDICT IDENTIFIER WITH '{' input_value_list '}'
+    {
+        if (strcmp($2, network_name) != 0) {
+
+            fprintf(
+                stderr,
+                "Semantic error: network '%s' does not exist\n",
+                $2
+            );
+
+            free($2);
+            exit(1);
+        }
+
+        free($2);
+
+        print_prediction_inputs();
+    }
+;
+
+input_value_list:
+    input_value
+    |
+    input_value_list input_value
+;
+
+input_value:
+    IDENTIFIER '=' NUMBER ';'
+    {
+        set_input_value($1, $3);
+    }
+;
+
 %%
 
 void yyerror(const char *s)
 {
     fprintf(stderr, "Parser error: %s\n", s);
+}
+
+/* ---------- Semantic Checking ---------- */
+
+int input_exists(const char *name)
+{
+    for (int i = 0; i < input_count; i++) {
+
+        if (strcmp(input_names[i], name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int find_input_index(const char *name)
+{
+    for (int i = 0; i < input_count; i++) {
+
+        if (strcmp(input_names[i], name) == 0) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+int neuron_exists_in_layer(int layer_index, const char *name)
+{
+    if (layer_index < 0 || layer_index >= layer_count) {
+        return 0;
+    }
+
+    Layer *layer = &layers[layer_index];
+
+    for (int i = 0; i < layer->neuron_count; i++) {
+
+        if (strcmp(layer->neurons[i].name, name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int get_current_layer_index(void)
+{
+    if (current_layer == NULL) {
+        return -1;
+    }
+
+    return (int)(current_layer - layers);
+}
+
+int source_is_valid(const char *source_name)
+{
+    int layer_index = get_current_layer_index();
+
+    /*
+     * First layer:
+     * sources must be declared inputs.
+     */
+    if (layer_index == 0) {
+        return input_exists(source_name);
+    }
+
+    /*
+     * Later layers:
+     * sources must be neurons from the previous layer.
+     */
+    if (layer_index > 0) {
+
+        return neuron_exists_in_layer(
+            layer_index - 1,
+            source_name
+        );
+    }
+
+    return 0;
 }
 
 int main(void)
