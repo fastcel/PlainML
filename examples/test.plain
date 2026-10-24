@@ -1,2 +1,9 @@
-network test {
+network student_success {
+
+    inputs {
+        attendance;
+        study_hours;
+        assignments;
+    }
+
 }

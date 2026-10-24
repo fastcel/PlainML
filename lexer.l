@@ -7,6 +7,7 @@
 %%
 
 "network"                       { return NETWORK; }
+"inputs"                         { return INPUTS; }
 
 [a-zA-Z_][a-zA-Z0-9_]*         {
                                     yylval.text = strdup(yytext);
@@ -15,6 +16,7 @@
 
 "{"                             { return '{'; }
 "}"                             { return '}'; }
+";"                             { return ';'; }
 
 [ \t\r\n]+                      { /* ignore whitespace */ }
 
