@@ -10,8 +10,16 @@
 "inputs"                        { return INPUTS; }
 "layer"                         { return LAYER; }
 "activation"                    { return ACTIVATION; }
+"neuron"                        { return NEURON; }
+"weight"                        { return WEIGHT; }
+"bias"                          { return BIAS; }
 "relu"                          { return RELU; }
 "step"                          { return STEP; }
+
+-?[0-9]+(\.[0-9]+)?             {
+                                    yylval.number = atof(yytext);
+                                    return NUMBER;
+                                }
 
 [a-zA-Z_][a-zA-Z0-9_]*         {
                                     yylval.text = strdup(yytext);

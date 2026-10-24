@@ -75,6 +75,8 @@
 
 #define MAX_INPUTS 32
 #define MAX_LAYERS 16
+#define MAX_NEURONS 32
+#define MAX_CONNECTIONS 32
 
 int yylex(void);
 void yyerror(const char *s);
@@ -94,7 +96,7 @@ void add_input(char *name)
     input_names[input_count++] = name;
 }
 
-/* ---------- Layers ---------- */
+/* ---------- Neural Network Structures ---------- */
 
 typedef enum {
     ACT_RELU,
@@ -102,25 +104,36 @@ typedef enum {
 } ActivationType;
 
 typedef struct {
+    char *source_name;
+    double weight;
+} Connection;
+
+typedef struct {
+    char *name;
+
+    Connection connections[MAX_CONNECTIONS];
+    int connection_count;
+
+    double bias;
+} Neuron;
+
+typedef struct {
     char *name;
     ActivationType activation;
+
+    Neuron neurons[MAX_NEURONS];
+    int neuron_count;
 } Layer;
+
+/* ---------- Stored Network ---------- */
 
 Layer layers[MAX_LAYERS];
 int layer_count = 0;
 
-void add_layer(char *name, ActivationType activation)
-{
-    if (layer_count >= MAX_LAYERS) {
-        fprintf(stderr, "Error: too many layers\n");
-        exit(1);
-    }
+Layer *current_layer = NULL;
+Neuron *current_neuron = NULL;
 
-    layers[layer_count].name = name;
-    layers[layer_count].activation = activation;
-
-    layer_count++;
-}
+/* ---------- Helper Functions ---------- */
 
 const char *activation_name(ActivationType activation)
 {
@@ -136,7 +149,153 @@ const char *activation_name(ActivationType activation)
     }
 }
 
-#line 140 "parser.tab.c"
+void start_layer(char *name, ActivationType activation)
+{
+    if (layer_count >= MAX_LAYERS) {
+        fprintf(stderr, "Error: too many layers\n");
+        exit(1);
+    }
+
+    current_layer = &layers[layer_count];
+
+    current_layer->name = name;
+    current_layer->activation = activation;
+    current_layer->neuron_count = 0;
+
+    layer_count++;
+}
+
+void start_neuron(char *name)
+{
+    if (current_layer == NULL) {
+        fprintf(stderr, "Error: neuron outside layer\n");
+        exit(1);
+    }
+
+    if (current_layer->neuron_count >= MAX_NEURONS) {
+        fprintf(stderr, "Error: too many neurons\n");
+        exit(1);
+    }
+
+    current_neuron =
+        &current_layer->neurons[current_layer->neuron_count];
+
+    current_neuron->name = name;
+    current_neuron->connection_count = 0;
+    current_neuron->bias = 0.0;
+
+    current_layer->neuron_count++;
+}
+
+void add_connection(char *source_name, double weight)
+{
+    if (current_neuron == NULL) {
+        fprintf(stderr, "Error: connection outside neuron\n");
+        exit(1);
+    }
+
+    if (current_neuron->connection_count >= MAX_CONNECTIONS) {
+        fprintf(stderr, "Error: too many connections\n");
+        exit(1);
+    }
+
+    Connection *connection =
+        &current_neuron->connections[current_neuron->connection_count];
+
+    connection->source_name = source_name;
+    connection->weight = weight;
+
+    current_neuron->connection_count++;
+}
+
+void set_bias(double bias)
+{
+    if (current_neuron == NULL) {
+        fprintf(stderr, "Error: bias outside neuron\n");
+        exit(1);
+    }
+
+    current_neuron->bias = bias;
+}
+
+/* ---------- Printing ---------- */
+
+void print_network(char *network_name)
+{
+    printf("Parsed network: %s\n", network_name);
+
+    printf("\nInputs:\n");
+
+    for (int i = 0; i < input_count; i++) {
+        printf("  %s\n", input_names[i]);
+    }
+
+    printf("\nLayers:\n");
+
+    for (int i = 0; i < layer_count; i++) {
+
+        Layer *layer = &layers[i];
+
+        printf(
+            "\nLayer: %s (activation: %s)\n",
+            layer->name,
+            activation_name(layer->activation)
+        );
+
+        for (int j = 0; j < layer->neuron_count; j++) {
+
+            Neuron *neuron = &layer->neurons[j];
+
+            printf("  Neuron: %s\n", neuron->name);
+
+            for (int k = 0; k < neuron->connection_count; k++) {
+
+                Connection *connection =
+                    &neuron->connections[k];
+
+                printf(
+                    "    %s weight %.2f\n",
+                    connection->source_name,
+                    connection->weight
+                );
+            }
+
+            printf("    bias %.2f\n", neuron->bias);
+        }
+    }
+}
+
+/* ---------- Memory Cleanup ---------- */
+
+void cleanup_network(char *network_name)
+{
+    for (int i = 0; i < input_count; i++) {
+        free(input_names[i]);
+    }
+
+    for (int i = 0; i < layer_count; i++) {
+
+        Layer *layer = &layers[i];
+
+        for (int j = 0; j < layer->neuron_count; j++) {
+
+            Neuron *neuron = &layer->neurons[j];
+
+            for (int k = 0; k < neuron->connection_count; k++) {
+                free(neuron->connections[k].source_name);
+            }
+
+            free(neuron->name);
+        }
+
+        free(layer->name);
+    }
+
+    free(network_name);
+}
+
+
+#line 299 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -171,20 +330,32 @@ enum yysymbol_kind_t
   YYSYMBOL_INPUTS = 4,                     /* INPUTS  */
   YYSYMBOL_LAYER = 5,                      /* LAYER  */
   YYSYMBOL_ACTIVATION = 6,                 /* ACTIVATION  */
-  YYSYMBOL_RELU = 7,                       /* RELU  */
-  YYSYMBOL_STEP = 8,                       /* STEP  */
-  YYSYMBOL_IDENTIFIER = 9,                 /* IDENTIFIER  */
-  YYSYMBOL_10_ = 10,                       /* '{'  */
-  YYSYMBOL_11_ = 11,                       /* '}'  */
-  YYSYMBOL_12_ = 12,                       /* ';'  */
-  YYSYMBOL_YYACCEPT = 13,                  /* $accept  */
-  YYSYMBOL_program = 14,                   /* program  */
-  YYSYMBOL_inputs_block = 15,              /* inputs_block  */
-  YYSYMBOL_input_list = 16,                /* input_list  */
-  YYSYMBOL_input_decl = 17,                /* input_decl  */
-  YYSYMBOL_layer_list = 18,                /* layer_list  */
-  YYSYMBOL_layer_decl = 19,                /* layer_decl  */
-  YYSYMBOL_activation_type = 20            /* activation_type  */
+  YYSYMBOL_NEURON = 7,                     /* NEURON  */
+  YYSYMBOL_WEIGHT = 8,                     /* WEIGHT  */
+  YYSYMBOL_BIAS = 9,                       /* BIAS  */
+  YYSYMBOL_RELU = 10,                      /* RELU  */
+  YYSYMBOL_STEP = 11,                      /* STEP  */
+  YYSYMBOL_IDENTIFIER = 12,                /* IDENTIFIER  */
+  YYSYMBOL_NUMBER = 13,                    /* NUMBER  */
+  YYSYMBOL_14_ = 14,                       /* '{'  */
+  YYSYMBOL_15_ = 15,                       /* '}'  */
+  YYSYMBOL_16_ = 16,                       /* ';'  */
+  YYSYMBOL_YYACCEPT = 17,                  /* $accept  */
+  YYSYMBOL_program = 18,                   /* program  */
+  YYSYMBOL_inputs_block = 19,              /* inputs_block  */
+  YYSYMBOL_input_list = 20,                /* input_list  */
+  YYSYMBOL_input_decl = 21,                /* input_decl  */
+  YYSYMBOL_layer_list = 22,                /* layer_list  */
+  YYSYMBOL_layer_decl = 23,                /* layer_decl  */
+  YYSYMBOL_layer_header = 24,              /* layer_header  */
+  YYSYMBOL_activation_type = 25,           /* activation_type  */
+  YYSYMBOL_neuron_list = 26,               /* neuron_list  */
+  YYSYMBOL_neuron_decl = 27,               /* neuron_decl  */
+  YYSYMBOL_neuron_header = 28,             /* neuron_header  */
+  YYSYMBOL_neuron_body = 29,               /* neuron_body  */
+  YYSYMBOL_connection_list = 30,           /* connection_list  */
+  YYSYMBOL_connection_decl = 31,           /* connection_decl  */
+  YYSYMBOL_bias_decl = 32                  /* bias_decl  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -512,19 +683,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  4
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   25
+#define YYLAST   38
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  13
+#define YYNTOKENS  17
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  8
+#define YYNNTS  16
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  11
+#define YYNRULES  21
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  27
+#define YYNSTATES  48
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   264
+#define YYMAXUTOK   268
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -543,14 +714,14 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,    12,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,    16,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,    10,     2,    11,     2,     2,     2,     2,
+       2,     2,     2,    14,     2,    15,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -564,15 +735,16 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7,     8,     9
+       5,     6,     7,     8,     9,    10,    11,    12,    13
 };
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_uint8 yyrline[] =
+static const yytype_int16 yyrline[] =
 {
-       0,    89,    89,   127,   131,   133,   137,   147,   149,   153,
-     160,   165
+       0,   259,   259,   269,   273,   275,   279,   288,   290,   294,
+     301,   310,   315,   324,   326,   330,   337,   346,   350,   352,
+     356,   363
 };
 #endif
 
@@ -589,9 +761,12 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
 static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "NETWORK", "INPUTS",
-  "LAYER", "ACTIVATION", "RELU", "STEP", "IDENTIFIER", "'{'", "'}'", "';'",
-  "$accept", "program", "inputs_block", "input_list", "input_decl",
-  "layer_list", "layer_decl", "activation_type", YY_NULLPTR
+  "LAYER", "ACTIVATION", "NEURON", "WEIGHT", "BIAS", "RELU", "STEP",
+  "IDENTIFIER", "NUMBER", "'{'", "'}'", "';'", "$accept", "program",
+  "inputs_block", "input_list", "input_decl", "layer_list", "layer_decl",
+  "layer_header", "activation_type", "neuron_list", "neuron_decl",
+  "neuron_header", "neuron_body", "connection_list", "connection_decl",
+  "bias_decl", YY_NULLPTR
 };
 
 static const char *
@@ -601,7 +776,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-9)
+#define YYPACT_NINF (-14)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -615,9 +790,11 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-      -1,    -2,     8,     0,    -9,     5,     1,     7,     4,     6,
-      -5,    -9,     2,    -8,    -9,    10,    -9,    -9,    -9,    -9,
-      -9,    -3,    -9,    -9,     9,    11,    -9
+       3,     0,     7,     1,   -14,     9,     2,    12,     6,     8,
+      -5,   -14,     5,    -2,   -10,   -14,    15,   -14,   -14,    16,
+     -14,   -14,   -14,    -7,    10,    -6,   -14,    11,   -14,   -14,
+     -14,   -14,   -14,   -14,    14,    19,    13,    -1,   -14,    17,
+     -14,    18,   -14,   -14,    20,    21,   -14,   -14
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -626,20 +803,24 @@ static const yytype_int8 yypact[] =
 static const yytype_int8 yydefact[] =
 {
        0,     0,     0,     0,     1,     0,     0,     0,     0,     0,
-       0,     7,     0,     0,     4,     0,     2,     8,     6,     3,
-       5,     0,    10,    11,     0,     0,     9
+       0,     7,     0,     0,     0,     4,     0,     2,     8,     0,
+       6,     3,     5,     0,     0,     0,    13,     0,    11,    12,
+      10,    16,     9,    14,     0,     0,     0,     0,    18,     0,
+      15,     0,    19,    17,     0,     0,    20,    21
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-      -9,    -9,    -9,    -9,    12,    -9,    13,    -9
+     -14,   -14,   -14,   -14,    24,   -14,    22,   -14,   -14,   -14,
+       4,   -14,   -14,   -14,   -13,   -14
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     2,     7,    13,    14,    10,    11,    24
+       0,     2,     7,    14,    15,    10,    11,    12,    30,    25,
+      26,    27,    36,    37,    38,    43
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -647,39 +828,45 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-       9,    12,     1,    19,    22,    23,    16,     3,     4,     6,
-       5,     8,     9,    12,    18,    15,    21,     0,     0,    25,
-       0,     0,    26,    17,     0,    20
+       9,    24,    13,    28,    29,    21,     1,     4,    41,    32,
+      17,    35,     3,     6,    20,     5,     8,     9,    13,    19,
+      16,    23,    31,    24,    42,    34,    35,    39,    40,    33,
+      44,    45,    18,     0,     0,     0,    46,    47,    22
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     9,     3,    11,     7,     8,    11,     9,     0,     4,
-      10,    10,     5,     9,    12,     9,     6,    -1,    -1,    10,
-      -1,    -1,    11,    10,    -1,    13
+       5,     7,    12,    10,    11,    15,     3,     0,     9,    15,
+      15,    12,    12,     4,    16,    14,    14,     5,    12,    14,
+      12,     6,    12,     7,    37,    14,    12,     8,    15,    25,
+      13,    13,    10,    -1,    -1,    -1,    16,    16,    14
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     3,    14,     9,     0,    10,     4,    15,    10,     5,
-      18,    19,     9,    16,    17,     9,    11,    19,    12,    11,
-      17,     6,     7,     8,    20,    10,    11
+       0,     3,    18,    12,     0,    14,     4,    19,    14,     5,
+      22,    23,    24,    12,    20,    21,    12,    15,    23,    14,
+      16,    15,    21,     6,     7,    26,    27,    28,    10,    11,
+      25,    12,    15,    27,    14,    12,    29,    30,    31,     8,
+      15,     9,    31,    32,    13,    13,    16,    16
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    13,    14,    15,    16,    16,    17,    18,    18,    19,
-      20,    20
+       0,    17,    18,    19,    20,    20,    21,    22,    22,    23,
+      24,    25,    25,    26,    26,    27,    28,    29,    30,    30,
+      31,    32
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     6,     4,     1,     2,     2,     1,     2,     6,
-       1,     1
+       0,     2,     6,     4,     1,     2,     2,     1,     2,     4,
+       4,     1,     1,     1,     2,     4,     2,     2,     1,     2,
+       4,     3
 };
 
 
@@ -1143,75 +1330,88 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* program: NETWORK IDENTIFIER '{' inputs_block layer_list '}'  */
-#line 90 "parser.y"
+#line 260 "parser.y"
     {
-        printf("Parsed network: %s\n", (yyvsp[-4].text));
-
-        printf("\nInputs:\n");
-
-        for (int i = 0; i < input_count; i++) {
-            printf("  %s\n", input_names[i]);
-        }
-
-        printf("\nLayers:\n");
-
-        for (int i = 0; i < layer_count; i++) {
-            printf(
-                "  %s (activation: %s)\n",
-                layers[i].name,
-                activation_name(layers[i].activation)
-            );
-        }
-
-        /* Free allocated identifier strings */
-
-        for (int i = 0; i < input_count; i++) {
-            free(input_names[i]);
-        }
-
-        for (int i = 0; i < layer_count; i++) {
-            free(layers[i].name);
-        }
-
-        free((yyvsp[-4].text));
+        print_network((yyvsp[-4].text));
+        cleanup_network((yyvsp[-4].text));
     }
-#line 1179 "parser.tab.c"
+#line 1339 "parser.tab.c"
     break;
 
   case 6: /* input_decl: IDENTIFIER ';'  */
-#line 138 "parser.y"
+#line 280 "parser.y"
     {
         add_input((yyvsp[-1].text));
     }
-#line 1187 "parser.tab.c"
+#line 1347 "parser.tab.c"
     break;
 
-  case 9: /* layer_decl: LAYER IDENTIFIER ACTIVATION activation_type '{' '}'  */
-#line 154 "parser.y"
+  case 9: /* layer_decl: layer_header '{' neuron_list '}'  */
+#line 295 "parser.y"
     {
-        add_layer((yyvsp[-4].text), (yyvsp[-2].activation));
+        current_layer = NULL;
     }
-#line 1195 "parser.tab.c"
+#line 1355 "parser.tab.c"
     break;
 
-  case 10: /* activation_type: RELU  */
-#line 161 "parser.y"
+  case 10: /* layer_header: LAYER IDENTIFIER ACTIVATION activation_type  */
+#line 302 "parser.y"
+    {
+        start_layer((yyvsp[-2].text), (yyvsp[0].activation));
+    }
+#line 1363 "parser.tab.c"
+    break;
+
+  case 11: /* activation_type: RELU  */
+#line 311 "parser.y"
     {
         (yyval.activation) = ACT_RELU;
     }
-#line 1203 "parser.tab.c"
+#line 1371 "parser.tab.c"
     break;
 
-  case 11: /* activation_type: STEP  */
-#line 166 "parser.y"
+  case 12: /* activation_type: STEP  */
+#line 316 "parser.y"
     {
         (yyval.activation) = ACT_STEP;
     }
-#line 1211 "parser.tab.c"
+#line 1379 "parser.tab.c"
+    break;
+
+  case 15: /* neuron_decl: neuron_header '{' neuron_body '}'  */
+#line 331 "parser.y"
+    {
+        current_neuron = NULL;
+    }
+#line 1387 "parser.tab.c"
+    break;
+
+  case 16: /* neuron_header: NEURON IDENTIFIER  */
+#line 338 "parser.y"
+    {
+        start_neuron((yyvsp[0].text));
+    }
+#line 1395 "parser.tab.c"
+    break;
+
+  case 20: /* connection_decl: IDENTIFIER WEIGHT NUMBER ';'  */
+#line 357 "parser.y"
+    {
+        add_connection((yyvsp[-3].text), (yyvsp[-1].number));
+    }
+#line 1403 "parser.tab.c"
+    break;
+
+  case 21: /* bias_decl: BIAS NUMBER ';'  */
+#line 364 "parser.y"
+    {
+        set_bias((yyvsp[-1].number));
+    }
+#line 1411 "parser.tab.c"
     break;
 
 
-#line 1215 "parser.tab.c"
+#line 1415 "parser.tab.c"
 
       default: break;
     }
@@ -1404,7 +1604,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 171 "parser.y"
+#line 369 "parser.y"
 
 
 void yyerror(const char *s)

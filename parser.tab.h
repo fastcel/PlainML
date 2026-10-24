@@ -58,9 +58,13 @@ extern int yydebug;
     INPUTS = 259,                  /* INPUTS  */
     LAYER = 260,                   /* LAYER  */
     ACTIVATION = 261,              /* ACTIVATION  */
-    RELU = 262,                    /* RELU  */
-    STEP = 263,                    /* STEP  */
-    IDENTIFIER = 264               /* IDENTIFIER  */
+    NEURON = 262,                  /* NEURON  */
+    WEIGHT = 263,                  /* WEIGHT  */
+    BIAS = 264,                    /* BIAS  */
+    RELU = 265,                    /* RELU  */
+    STEP = 266,                    /* STEP  */
+    IDENTIFIER = 267,              /* IDENTIFIER  */
+    NUMBER = 268                   /* NUMBER  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -69,12 +73,13 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 70 "parser.y"
+#line 231 "parser.y"
 
     char *text;
     int activation;
+    double number;
 
-#line 78 "parser.tab.h"
+#line 83 "parser.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

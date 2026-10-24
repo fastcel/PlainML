@@ -7,8 +7,20 @@ network student_success {
     }
 
     layer hidden activation relu {
+
+        neuron effort {
+            attendance weight 0.30;
+            study_hours weight 0.80;
+            assignments weight 0.60;
+            bias -0.20;
+        }
     }
 
     layer output activation step {
+
+        neuron success {
+            effort weight 1.00;
+            bias -0.50;
+        }
     }
 }
