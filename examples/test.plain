@@ -6,4 +6,9 @@ network student_success {
         assignments;
     }
 
+    layer hidden activation relu {
+    }
+
+    layer output activation step {
+    }
 }

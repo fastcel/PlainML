@@ -74,9 +74,12 @@
 #include <string.h>
 
 #define MAX_INPUTS 32
+#define MAX_LAYERS 16
 
 int yylex(void);
 void yyerror(const char *s);
+
+/* ---------- Inputs ---------- */
 
 char *input_names[MAX_INPUTS];
 int input_count = 0;
@@ -91,7 +94,49 @@ void add_input(char *name)
     input_names[input_count++] = name;
 }
 
-#line 95 "parser.tab.c"
+/* ---------- Layers ---------- */
+
+typedef enum {
+    ACT_RELU,
+    ACT_STEP
+} ActivationType;
+
+typedef struct {
+    char *name;
+    ActivationType activation;
+} Layer;
+
+Layer layers[MAX_LAYERS];
+int layer_count = 0;
+
+void add_layer(char *name, ActivationType activation)
+{
+    if (layer_count >= MAX_LAYERS) {
+        fprintf(stderr, "Error: too many layers\n");
+        exit(1);
+    }
+
+    layers[layer_count].name = name;
+    layers[layer_count].activation = activation;
+
+    layer_count++;
+}
+
+const char *activation_name(ActivationType activation)
+{
+    switch (activation) {
+        case ACT_RELU:
+            return "relu";
+
+        case ACT_STEP:
+            return "step";
+
+        default:
+            return "unknown";
+    }
+}
+
+#line 140 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -124,15 +169,22 @@ enum yysymbol_kind_t
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
   YYSYMBOL_NETWORK = 3,                    /* NETWORK  */
   YYSYMBOL_INPUTS = 4,                     /* INPUTS  */
-  YYSYMBOL_IDENTIFIER = 5,                 /* IDENTIFIER  */
-  YYSYMBOL_6_ = 6,                         /* '{'  */
-  YYSYMBOL_7_ = 7,                         /* '}'  */
-  YYSYMBOL_8_ = 8,                         /* ';'  */
-  YYSYMBOL_YYACCEPT = 9,                   /* $accept  */
-  YYSYMBOL_program = 10,                   /* program  */
-  YYSYMBOL_inputs_block = 11,              /* inputs_block  */
-  YYSYMBOL_input_list = 12,                /* input_list  */
-  YYSYMBOL_input_decl = 13                 /* input_decl  */
+  YYSYMBOL_LAYER = 5,                      /* LAYER  */
+  YYSYMBOL_ACTIVATION = 6,                 /* ACTIVATION  */
+  YYSYMBOL_RELU = 7,                       /* RELU  */
+  YYSYMBOL_STEP = 8,                       /* STEP  */
+  YYSYMBOL_IDENTIFIER = 9,                 /* IDENTIFIER  */
+  YYSYMBOL_10_ = 10,                       /* '{'  */
+  YYSYMBOL_11_ = 11,                       /* '}'  */
+  YYSYMBOL_12_ = 12,                       /* ';'  */
+  YYSYMBOL_YYACCEPT = 13,                  /* $accept  */
+  YYSYMBOL_program = 14,                   /* program  */
+  YYSYMBOL_inputs_block = 15,              /* inputs_block  */
+  YYSYMBOL_input_list = 16,                /* input_list  */
+  YYSYMBOL_input_decl = 17,                /* input_decl  */
+  YYSYMBOL_layer_list = 18,                /* layer_list  */
+  YYSYMBOL_layer_decl = 19,                /* layer_decl  */
+  YYSYMBOL_activation_type = 20            /* activation_type  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -460,19 +512,19 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  4
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   14
+#define YYLAST   25
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  9
+#define YYNTOKENS  13
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  5
+#define YYNNTS  8
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  6
+#define YYNRULES  11
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  16
+#define YYNSTATES  27
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   260
+#define YYMAXUTOK   264
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -491,14 +543,14 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     2,     2,     2,     2,     2,     2,     8,
+       2,     2,     2,     2,     2,     2,     2,     2,     2,    12,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
-       2,     2,     2,     6,     2,     7,     2,     2,     2,     2,
+       2,     2,     2,    10,     2,    11,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
@@ -512,14 +564,15 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5
+       5,     6,     7,     8,     9
 };
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_int8 yyrline[] =
+static const yytype_uint8 yyrline[] =
 {
-       0,    36,    36,    51,    55,    57,    61
+       0,    89,    89,   127,   131,   133,   137,   147,   149,   153,
+     160,   165
 };
 #endif
 
@@ -536,8 +589,9 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
 static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "NETWORK", "INPUTS",
-  "IDENTIFIER", "'{'", "'}'", "';'", "$accept", "program", "inputs_block",
-  "input_list", "input_decl", YY_NULLPTR
+  "LAYER", "ACTIVATION", "RELU", "STEP", "IDENTIFIER", "'{'", "'}'", "';'",
+  "$accept", "program", "inputs_block", "input_list", "input_decl",
+  "layer_list", "layer_decl", "activation_type", YY_NULLPTR
 };
 
 static const char *
@@ -547,7 +601,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-6)
+#define YYPACT_NINF (-9)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -561,8 +615,9 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-      -2,    -1,     3,     0,    -6,     1,     2,     4,     5,    -6,
-       6,    -5,    -6,    -6,    -6,    -6
+      -1,    -2,     8,     0,    -9,     5,     1,     7,     4,     6,
+      -5,    -9,     2,    -8,    -9,    10,    -9,    -9,    -9,    -9,
+      -9,    -3,    -9,    -9,     9,    11,    -9
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -570,20 +625,21 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       0,     0,     0,     0,     1,     0,     0,     0,     0,     2,
-       0,     0,     4,     6,     3,     5
+       0,     0,     0,     0,     1,     0,     0,     0,     0,     0,
+       0,     7,     0,     0,     4,     0,     2,     8,     6,     3,
+       5,     0,    10,    11,     0,     0,     9
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-      -6,    -6,    -6,    -6,    -4
+      -9,    -9,    -9,    -9,    12,    -9,    13,    -9
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     2,     7,    11,    12
+       0,     2,     7,    13,    14,    10,    11,    24
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -591,34 +647,39 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      10,     1,    14,     4,     3,     6,     5,    15,     8,     0,
-      10,     9,     0,     0,    13
+       9,    12,     1,    19,    22,    23,    16,     3,     4,     6,
+       5,     8,     9,    12,    18,    15,    21,     0,     0,    25,
+       0,     0,    26,    17,     0,    20
 };
 
 static const yytype_int8 yycheck[] =
 {
-       5,     3,     7,     0,     5,     4,     6,    11,     6,    -1,
-       5,     7,    -1,    -1,     8
+       5,     9,     3,    11,     7,     8,    11,     9,     0,     4,
+      10,    10,     5,     9,    12,     9,     6,    -1,    -1,    10,
+      -1,    -1,    11,    10,    -1,    13
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     3,    10,     5,     0,     6,     4,    11,     6,     7,
-       5,    12,    13,     8,     7,    13
+       0,     3,    14,     9,     0,    10,     4,    15,    10,     5,
+      18,    19,     9,    16,    17,     9,    11,    19,    12,    11,
+      17,     6,     7,     8,    20,    10,    11
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,     9,    10,    11,    12,    12,    13
+       0,    13,    14,    15,    16,    16,    17,    18,    18,    19,
+      20,    20
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     5,     4,     1,     2,     2
+       0,     2,     6,     4,     1,     2,     2,     1,     2,     6,
+       1,     1
 };
 
 
@@ -1081,32 +1142,76 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 2: /* program: NETWORK IDENTIFIER '{' inputs_block '}'  */
-#line 37 "parser.y"
+  case 2: /* program: NETWORK IDENTIFIER '{' inputs_block layer_list '}'  */
+#line 90 "parser.y"
     {
-        printf("Parsed network: %s\n", (yyvsp[-3].text));
-        printf("Inputs:\n");
+        printf("Parsed network: %s\n", (yyvsp[-4].text));
+
+        printf("\nInputs:\n");
 
         for (int i = 0; i < input_count; i++) {
             printf("  %s\n", input_names[i]);
+        }
+
+        printf("\nLayers:\n");
+
+        for (int i = 0; i < layer_count; i++) {
+            printf(
+                "  %s (activation: %s)\n",
+                layers[i].name,
+                activation_name(layers[i].activation)
+            );
+        }
+
+        /* Free allocated identifier strings */
+
+        for (int i = 0; i < input_count; i++) {
             free(input_names[i]);
         }
 
-        free((yyvsp[-3].text));
+        for (int i = 0; i < layer_count; i++) {
+            free(layers[i].name);
+        }
+
+        free((yyvsp[-4].text));
     }
-#line 1098 "parser.tab.c"
+#line 1179 "parser.tab.c"
     break;
 
   case 6: /* input_decl: IDENTIFIER ';'  */
-#line 62 "parser.y"
+#line 138 "parser.y"
     {
         add_input((yyvsp[-1].text));
     }
-#line 1106 "parser.tab.c"
+#line 1187 "parser.tab.c"
+    break;
+
+  case 9: /* layer_decl: LAYER IDENTIFIER ACTIVATION activation_type '{' '}'  */
+#line 154 "parser.y"
+    {
+        add_layer((yyvsp[-4].text), (yyvsp[-2].activation));
+    }
+#line 1195 "parser.tab.c"
+    break;
+
+  case 10: /* activation_type: RELU  */
+#line 161 "parser.y"
+    {
+        (yyval.activation) = ACT_RELU;
+    }
+#line 1203 "parser.tab.c"
+    break;
+
+  case 11: /* activation_type: STEP  */
+#line 166 "parser.y"
+    {
+        (yyval.activation) = ACT_STEP;
+    }
+#line 1211 "parser.tab.c"
     break;
 
 
-#line 1110 "parser.tab.c"
+#line 1215 "parser.tab.c"
 
       default: break;
     }
@@ -1299,7 +1404,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 67 "parser.y"
+#line 171 "parser.y"
 
 
 void yyerror(const char *s)

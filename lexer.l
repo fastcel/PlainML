@@ -7,7 +7,11 @@
 %%
 
 "network"                       { return NETWORK; }
-"inputs"                         { return INPUTS; }
+"inputs"                        { return INPUTS; }
+"layer"                         { return LAYER; }
+"activation"                    { return ACTIVATION; }
+"relu"                          { return RELU; }
+"step"                          { return STEP; }
 
 [a-zA-Z_][a-zA-Z0-9_]*         {
                                     yylval.text = strdup(yytext);
