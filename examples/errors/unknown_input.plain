@@ -1,0 +1,26 @@
+network bad_input {
+
+    inputs {
+        x;
+    }
+
+    layer hidden activation relu {
+
+        neuron a {
+            y weight 1.00;
+            bias 0.00;
+        }
+    }
+
+    layer output activation step {
+
+        neuron result {
+            a weight 1.00;
+            bias 0.00;
+        }
+    }
+}
+
+predict bad_input with {
+    x = 1.00;
+}
