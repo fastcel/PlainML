@@ -14,9 +14,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 
-# ------------------------------------------------------------
+
 # Configuration
-# ------------------------------------------------------------
+
 
 if len(sys.argv) != 2:
     print(
@@ -58,9 +58,9 @@ PLAIN_NAMES = {
 }
 
 
-# ------------------------------------------------------------
+
 # Load dataset
-# ------------------------------------------------------------
+
 
 # sep=None lets pandas detect the delimiter used by the UCI CSV.
 df = pd.read_csv(
@@ -80,9 +80,9 @@ if missing:
     sys.exit(1)
 
 
-# ------------------------------------------------------------
+
 # Prepare features
-# ------------------------------------------------------------
+
 
 data = df[FEATURES].copy()
 
@@ -109,9 +109,9 @@ X = data.astype(float).to_numpy()
 y = (df["G3"].astype(float).to_numpy() >= 10.0).astype(int)
 
 
-# ------------------------------------------------------------
+
 # Train/test split
-# ------------------------------------------------------------
+
 
 indices = np.arange(len(df))
 
@@ -132,9 +132,9 @@ indices = np.arange(len(df))
 )
 
 
-# ------------------------------------------------------------
+
 # Normalize training features
-# ------------------------------------------------------------
+
 
 scaler = StandardScaler()
 
@@ -142,9 +142,9 @@ X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 
-# ------------------------------------------------------------
+
 # Balance the TRAINING data only
-# ------------------------------------------------------------
+
 #
 # The dataset contains substantially more passing students than
 # failing students. We oversample the minority training class so
@@ -181,9 +181,9 @@ X_train_balanced = X_train_scaled[balanced_indices]
 y_train_balanced = y_train[balanced_indices]
 
 
-# ------------------------------------------------------------
+
 # Train neural network
-# ------------------------------------------------------------
+
 #
 # Architecture:
 #
@@ -215,9 +215,9 @@ model.fit(
 )
 
 
-# ------------------------------------------------------------
+
 # Evaluate held-out test data
-# ------------------------------------------------------------
+
 
 predictions = model.predict(X_test_scaled)
 
@@ -254,9 +254,9 @@ print(f"  false negative:      {fn}")
 print(f"  true positive:       {tp}")
 
 
-# ------------------------------------------------------------
+
 # Extract trained parameters
-# ------------------------------------------------------------
+
 
 # sklearn:
 #
@@ -278,9 +278,9 @@ W2 = model.coefs_[1][:, 0]
 b2 = float(model.intercepts_[1][0])
 
 
-# ------------------------------------------------------------
+
 # Fold StandardScaler into first layer
-# ------------------------------------------------------------
+
 #
 # Training uses:
 #
@@ -306,9 +306,9 @@ raw_b1 = (
 )
 
 
-# ------------------------------------------------------------
+
 # Verify exported mathematics
-# ------------------------------------------------------------
+
 
 hidden_raw = np.maximum(
     X_test @ raw_W1 + raw_b1,
@@ -338,9 +338,9 @@ print()
 print("Export equivalence check: PASS")
 
 
-# ------------------------------------------------------------
+
 # Choose a real held-out example for the .plain file
-# ------------------------------------------------------------
+
 #
 # Pick the correctly classified held-out student with the
 # strongest decision margin.
@@ -390,9 +390,9 @@ print(f"{'expected_success':25s} = {demo_expected}")
 print(f"{'model_prediction':25s} = {demo_prediction}")
 
 
-# ------------------------------------------------------------
+
 # Generate PlainML source
-# ------------------------------------------------------------
+
 
 def number(value):
     """

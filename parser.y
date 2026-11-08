@@ -20,7 +20,7 @@ int get_current_layer_index(void);
 int source_is_valid(const char *source_name);
 void generate_llvm_ir(const char *filename);
 
-/* ---------- Inputs ---------- */
+/*  Inputs  */
 
 char *input_names[MAX_INPUTS];
 double input_values[MAX_INPUTS];
@@ -54,7 +54,7 @@ void add_input(char *name)
     input_count++;
 }
 
-/* ---------- Neural Network Structures ---------- */
+/*  Neural Network Structures  */
 
 typedef enum {
     ACT_RELU,
@@ -84,7 +84,7 @@ typedef struct {
     int neuron_count;
 } Layer;
 
-/* ---------- Stored Network ---------- */
+/*  Stored Network  */
 
 Layer layers[MAX_LAYERS];
 int layer_count = 0;
@@ -94,7 +94,7 @@ Neuron *current_neuron = NULL;
 
 char *network_name = NULL;
 
-/* ---------- Helper Functions ---------- */
+/*  Helper Functions  */
 
 const char *activation_name(ActivationType activation)
 {
@@ -238,7 +238,7 @@ void set_bias(double bias)
     current_neuron->bias = bias;
 }
 
-/* ---------- Prediction Input Handling ---------- */
+/*  Prediction Input Handling  */
 
 void set_input_value(char *name, double value)
 {
@@ -294,7 +294,7 @@ void print_prediction_inputs(void)
     }
 }
 
-/* ---------- Printing ---------- */
+/*  Printing  */
 
 void print_network(char *name)
 {
@@ -341,7 +341,7 @@ void print_network(char *name)
     }
 }
 
-/* ---------- Network Execution ---------- */
+/*  Network Execution  */
 
 double apply_activation(ActivationType activation, double value)
 {
@@ -511,7 +511,7 @@ void generate_llvm_ir(const char *filename)
 
     Layer *output_layer = &layers[layer_count - 1];
 
-    /* ---------- LLVM Module Header ---------- */
+    /*  LLVM Module Header  */
 
     fprintf(file, "; PlainML generated LLVM IR\n");
     fprintf(file, "source_filename = \"plainml\"\n\n");
@@ -554,7 +554,7 @@ void generate_llvm_ir(const char *filename)
 
     fprintf(file, "\n");
 
-    /* ---------- LLVM main ---------- */
+    /*  LLVM main  */
 
     fprintf(file, "define i32 @main() {\n");
     fprintf(file, "entry:\n");
@@ -813,7 +813,7 @@ void generate_llvm_ir(const char *filename)
         }
     }
 
-    /* ---------- Print Final Prediction ---------- */
+    /*  Print Final Prediction  */
 
     fprintf(
         file,
@@ -839,7 +839,7 @@ void generate_llvm_ir(const char *filename)
     printf("\nGenerated LLVM IR: %s\n", filename);
 }
 
-/* ---------- Memory Cleanup ---------- */
+/*  Memory Cleanup  */
 
 void cleanup_network(char *name)
 {
@@ -870,7 +870,7 @@ void cleanup_network(char *name)
 
 %}
 
-/* ---------- Semantic Values ---------- */
+/*  Semantic Values  */
 
 %union {
     char *text;
@@ -878,7 +878,7 @@ void cleanup_network(char *name)
     double number;
 }
 
-/* ---------- Tokens ---------- */
+/*  Tokens  */
 
 %token NETWORK
 %token INPUTS
@@ -899,7 +899,7 @@ void cleanup_network(char *name)
 
 %%
 
-/* ---------- Program ---------- */
+/*  Program  */
 
 program:
     network_definition predict_statement
@@ -908,7 +908,7 @@ program:
     }
 ;
 
-/* ---------- Network Definition ---------- */
+/*  Network Definition  */
 
 network_definition:
     NETWORK IDENTIFIER '{' inputs_block layer_list '}'
@@ -918,7 +918,7 @@ network_definition:
     }
 ;
 
-/* ---------- Inputs ---------- */
+/*  Inputs  */
 
 inputs_block:
     INPUTS '{' input_list '}'
@@ -937,7 +937,7 @@ input_decl:
     }
 ;
 
-/* ---------- Layers ---------- */
+/*  Layers  */
 
 layer_list:
     layer_decl
@@ -959,7 +959,7 @@ layer_header:
     }
 ;
 
-/* ---------- Activation Functions ---------- */
+/*  Activation Functions  */
 
 activation_type:
     RELU
@@ -973,7 +973,7 @@ activation_type:
     }
 ;
 
-/* ---------- Neurons ---------- */
+/*  Neurons  */
 
 neuron_list:
     neuron_decl
@@ -995,7 +995,7 @@ neuron_header:
     }
 ;
 
-/* ---------- Neuron Body ---------- */
+/*  Neuron Body  */
 
 neuron_body:
     connection_list bias_decl
@@ -1021,7 +1021,7 @@ bias_decl:
     }
 ;
 
-/* ---------- Prediction ---------- */
+/*  Prediction  */
 
 predict_statement:
     PREDICT IDENTIFIER WITH '{' input_value_list '}'
@@ -1065,7 +1065,7 @@ void yyerror(const char *s)
     fprintf(stderr, "Parser error: %s\n", s);
 }
 
-/* ---------- Semantic Checking ---------- */
+/*  Semantic Checking  */
 
 int input_exists(const char *name)
 {
