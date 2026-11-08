@@ -29,5 +29,21 @@ test-aot: plainml
 		echo; \
 	done
 
+test-errors: plainml
+	@set -e; \
+	for f in \
+		examples/errors/unknown_input.plain \
+		examples/errors/missing_prediction_input.plain \
+		examples/errors/duplicate_prediction_input.plain; do \
+		echo "===== Expecting failure: $$f ====="; \
+		if ./plainml < $$f; then \
+			echo "ERROR: $$f should have failed"; \
+			exit 1; \
+		else \
+			echo "Correctly rejected $$f"; \
+		fi; \
+		echo; \
+	done
+	
 clean:
 	rm -f plainml parser.tab.c parser.tab.h lex.yy.c output.ll plainml_aot
