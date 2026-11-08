@@ -1,0 +1,12 @@
+lex.yy.c
+parser.tab.c
+parser.tab.h
+plainml
+plainml_aot
+output.ll
+*.o
+*.out
+*.bc
+*.s
+.vscode/
+*~
