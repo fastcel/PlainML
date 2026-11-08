@@ -1,0 +1,40 @@
+network student_success {
+
+    inputs {
+        attendance;
+        study_hours;
+        assignments;
+    }
+
+    layer hidden activation relu {
+
+        neuron effort {
+            attendance weight 0.30;
+            study_hours weight 0.80;
+            assignments weight 0.60;
+            bias -0.20;
+        }
+
+        neuron consistency {
+            attendance weight 0.50;
+            study_hours weight 0.20;
+            assignments weight 0.40;
+            bias -0.10;
+        }
+    }
+
+    layer output activation step {
+
+        neuron success {
+            effort weight 0.70;
+            consistency weight 0.30;
+            bias -0.50;
+        }
+    }
+}
+
+predict student_success with {
+    attendance = 0.82;
+    study_hours = 0.60;
+    assignments = 0.80;
+}

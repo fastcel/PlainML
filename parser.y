@@ -452,6 +452,22 @@ void generate_llvm_ir(const char *filename)
         exit(1);
     }
 
+    /*
+     * Make sure every input has a prediction value.
+     */
+    for (int i = 0; i < input_count; i++) {
+        if (!input_value_set[i]) {
+            fprintf(
+                stderr,
+                "Semantic error: no value provided for input '%s'\n",
+                input_names[i]
+            );
+
+            fclose(file);
+            exit(1);
+        }
+    }
+
     fprintf(file, "; PlainML generated LLVM IR\n");
     fprintf(file, "source_filename = \"plainml\"\n\n");
 
@@ -459,107 +475,285 @@ void generate_llvm_ir(const char *filename)
 
     fprintf(
         file,
-        "@.fmt = private unnamed_addr constant [16 x i8] c\"Prediction: %%f\\0A\\00\"\n\n"
+        "@.fmt = private unnamed_addr constant "
+        "[16 x i8] c\"Prediction: %%f\\0A\\00\"\n\n"
     );
 
     fprintf(file, "define i32 @main() {\n");
     fprintf(file, "entry:\n");
 
     /*
-     * Hidden neuron:
-     *
-     * effort =
-     *   attendance * 0.30
-     * + study_hours * 0.80
-     * + assignments * 0.60
-     * - 0.20
+     * Stores the LLVM register containing the output
+     * of every neuron.
      */
+    char neuron_output_registers[MAX_LAYERS][MAX_NEURONS][32];
 
-    fprintf(
-        file,
-        "  %%a1 = fmul double %.17e, %.17e\n",
-        input_values[0],
-        layers[0].neurons[0].connections[0].weight
-    );
-
-    fprintf(
-        file,
-        "  %%a2 = fmul double %.17e, %.17e\n",
-        input_values[1],
-        layers[0].neurons[0].connections[1].weight
-    );
-
-    fprintf(
-        file,
-        "  %%a3 = fmul double %.17e, %.17e\n",
-        input_values[2],
-        layers[0].neurons[0].connections[2].weight
-    );
-
-    fprintf(file, "  %%sum1 = fadd double %%a1, %%a2\n");
-    fprintf(file, "  %%sum2 = fadd double %%sum1, %%a3\n");
-
-    fprintf(
-        file,
-        "  %%sum3 = fadd double %%sum2, %.17e\n",
-        layers[0].neurons[0].bias
-    );
+    int register_counter = 0;
 
     /*
-     * ReLU:
-     * effort = max(sum3, 0.0)
+     * Generate code layer by layer.
      */
-    fprintf(
-        file,
-        "  %%relu_cmp = fcmp ogt double %%sum3, 0.000000e+00\n"
-    );
+    for (int i = 0; i < layer_count; i++) {
 
-    fprintf(
-        file,
-        "  %%effort = select i1 %%relu_cmp, double %%sum3, double 0.000000e+00\n"
-    );
+        Layer *layer = &layers[i];
+
+        for (int j = 0; j < layer->neuron_count; j++) {
+
+            Neuron *neuron = &layer->neurons[j];
+
+            char sum_register[32] = "";
+
+            /*
+             * Generate every:
+             *
+             * source_value * weight
+             */
+            for (int k = 0; k < neuron->connection_count; k++) {
+
+                Connection *connection =
+                    &neuron->connections[k];
+
+                char source_operand[64];
+
+                /*
+                 * First layer reads source values
+                 * from prediction inputs.
+                 */
+                if (i == 0) {
+
+                    int input_index =
+                        find_input_index(
+                            connection->source_name
+                        );
+
+                    if (input_index == -1) {
+                        fprintf(
+                            stderr,
+                            "LLVM generation error: "
+                            "input '%s' not found\n",
+                            connection->source_name
+                        );
+
+                        fclose(file);
+                        exit(1);
+                    }
+
+                    snprintf(
+                        source_operand,
+                        sizeof(source_operand),
+                        "%.17e",
+                        input_values[input_index]
+                    );
+                }
+
+                /*
+                 * Later layers read the LLVM register
+                 * produced by a neuron in the previous layer.
+                 */
+                else {
+
+                    int source_neuron_index = -1;
+
+                    Layer *previous_layer =
+                        &layers[i - 1];
+
+                    for (
+                        int n = 0;
+                        n < previous_layer->neuron_count;
+                        n++
+                    ) {
+
+                        if (
+                            strcmp(
+                                previous_layer->neurons[n].name,
+                                connection->source_name
+                            ) == 0
+                        ) {
+                            source_neuron_index = n;
+                            break;
+                        }
+                    }
+
+                    if (source_neuron_index == -1) {
+                        fprintf(
+                            stderr,
+                            "LLVM generation error: "
+                            "source neuron '%s' not found\n",
+                            connection->source_name
+                        );
+
+                        fclose(file);
+                        exit(1);
+                    }
+
+                    strcpy(
+                        source_operand,
+                        neuron_output_registers
+                            [i - 1]
+                            [source_neuron_index]
+                    );
+                }
+
+                /*
+                 * Generate multiplication.
+                 */
+                char multiply_register[32];
+
+                snprintf(
+                    multiply_register,
+                    sizeof(multiply_register),
+                    "%%v%d",
+                    register_counter++
+                );
+
+                fprintf(
+                    file,
+                    "  %s = fmul double %s, %.17e\n",
+                    multiply_register,
+                    source_operand,
+                    connection->weight
+                );
+
+                /*
+                 * First connection:
+                 *
+                 * sum = multiplication + bias
+                 */
+                if (k == 0) {
+
+                    snprintf(
+                        sum_register,
+                        sizeof(sum_register),
+                        "%%v%d",
+                        register_counter++
+                    );
+
+                    fprintf(
+                        file,
+                        "  %s = fadd double %s, %.17e\n",
+                        sum_register,
+                        multiply_register,
+                        neuron->bias
+                    );
+                }
+
+                /*
+                 * Remaining connections:
+                 *
+                 * sum = previous_sum + multiplication
+                 */
+                else {
+
+                    char new_sum_register[32];
+
+                    snprintf(
+                        new_sum_register,
+                        sizeof(new_sum_register),
+                        "%%v%d",
+                        register_counter++
+                    );
+
+                    fprintf(
+                        file,
+                        "  %s = fadd double %s, %s\n",
+                        new_sum_register,
+                        sum_register,
+                        multiply_register
+                    );
+
+                    strcpy(
+                        sum_register,
+                        new_sum_register
+                    );
+                }
+            }
+
+            /*
+             * Apply the layer activation.
+             */
+            char compare_register[32];
+            char output_register[32];
+
+            snprintf(
+                compare_register,
+                sizeof(compare_register),
+                "%%v%d",
+                register_counter++
+            );
+
+            snprintf(
+                output_register,
+                sizeof(output_register),
+                "%%v%d",
+                register_counter++
+            );
+
+            if (layer->activation == ACT_RELU) {
+
+                fprintf(
+                    file,
+                    "  %s = fcmp ogt double %s, "
+                    "0.00000000000000000e+00\n",
+                    compare_register,
+                    sum_register
+                );
+
+                fprintf(
+                    file,
+                    "  %s = select i1 %s, "
+                    "double %s, "
+                    "double 0.00000000000000000e+00\n",
+                    output_register,
+                    compare_register,
+                    sum_register
+                );
+            }
+
+            else if (layer->activation == ACT_STEP) {
+
+                fprintf(
+                    file,
+                    "  %s = fcmp oge double %s, "
+                    "0.00000000000000000e+00\n",
+                    compare_register,
+                    sum_register
+                );
+
+                fprintf(
+                    file,
+                    "  %s = select i1 %s, "
+                    "double 1.00000000000000000e+00, "
+                    "double 0.00000000000000000e+00\n",
+                    output_register,
+                    compare_register
+                );
+            }
+
+            /*
+             * Remember where this neuron's result lives.
+             */
+            strcpy(
+                neuron_output_registers[i][j],
+                output_register
+            );
+        }
+    }
 
     /*
-     * Output neuron:
-     *
-     * success =
-     *   effort * 1.00
-     * + bias
+     * Print every neuron in the final layer.
      */
-    fprintf(
-        file,
-        "  %%out_mul = fmul double %%effort, %.17e\n",
-        layers[1].neurons[0].connections[0].weight
-    );
+    Layer *output_layer =
+        &layers[layer_count - 1];
 
-    fprintf(
-        file,
-        "  %%out_sum = fadd double %%out_mul, %.17e\n",
-        layers[1].neurons[0].bias
-    );
+    for (int i = 0; i < output_layer->neuron_count; i++) {
 
-    /*
-     * Step activation:
-     * success = 1.0 if out_sum >= 0
-     *           0.0 otherwise
-     */
-    fprintf(
-        file,
-        "  %%step_cmp = fcmp oge double %%out_sum, 0.000000e+00\n"
-    );
-
-    fprintf(
-        file,
-        "  %%success = select i1 %%step_cmp, double 1.000000e+00, double 0.000000e+00\n"
-    );
-
-    /*
-     * Print final prediction.
-     */
-    fprintf(
-        file,
-        "  call i32 (ptr, ...) @printf(ptr @.fmt, double %%success)\n"
-    );
+        fprintf(
+            file,
+            "  call i32 (ptr, ...) "
+            "@printf(ptr @.fmt, double %s)\n",
+            neuron_output_registers[layer_count - 1][i]
+        );
+    }
 
     fprintf(file, "  ret i32 0\n");
     fprintf(file, "}\n");
