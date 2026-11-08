@@ -455,8 +455,112 @@ void generate_llvm_ir(const char *filename)
     fprintf(file, "; PlainML generated LLVM IR\n");
     fprintf(file, "source_filename = \"plainml\"\n\n");
 
+    fprintf(file, "declare i32 @printf(ptr, ...)\n\n");
+
+    fprintf(
+        file,
+        "@.fmt = private unnamed_addr constant [16 x i8] c\"Prediction: %%f\\0A\\00\"\n\n"
+    );
+
     fprintf(file, "define i32 @main() {\n");
     fprintf(file, "entry:\n");
+
+    /*
+     * Hidden neuron:
+     *
+     * effort =
+     *   attendance * 0.30
+     * + study_hours * 0.80
+     * + assignments * 0.60
+     * - 0.20
+     */
+
+    fprintf(
+        file,
+        "  %%a1 = fmul double %.17e, %.17e\n",
+        input_values[0],
+        layers[0].neurons[0].connections[0].weight
+    );
+
+    fprintf(
+        file,
+        "  %%a2 = fmul double %.17e, %.17e\n",
+        input_values[1],
+        layers[0].neurons[0].connections[1].weight
+    );
+
+    fprintf(
+        file,
+        "  %%a3 = fmul double %.17e, %.17e\n",
+        input_values[2],
+        layers[0].neurons[0].connections[2].weight
+    );
+
+    fprintf(file, "  %%sum1 = fadd double %%a1, %%a2\n");
+    fprintf(file, "  %%sum2 = fadd double %%sum1, %%a3\n");
+
+    fprintf(
+        file,
+        "  %%sum3 = fadd double %%sum2, %.17e\n",
+        layers[0].neurons[0].bias
+    );
+
+    /*
+     * ReLU:
+     * effort = max(sum3, 0.0)
+     */
+    fprintf(
+        file,
+        "  %%relu_cmp = fcmp ogt double %%sum3, 0.000000e+00\n"
+    );
+
+    fprintf(
+        file,
+        "  %%effort = select i1 %%relu_cmp, double %%sum3, double 0.000000e+00\n"
+    );
+
+    /*
+     * Output neuron:
+     *
+     * success =
+     *   effort * 1.00
+     * + bias
+     */
+    fprintf(
+        file,
+        "  %%out_mul = fmul double %%effort, %.17e\n",
+        layers[1].neurons[0].connections[0].weight
+    );
+
+    fprintf(
+        file,
+        "  %%out_sum = fadd double %%out_mul, %.17e\n",
+        layers[1].neurons[0].bias
+    );
+
+    /*
+     * Step activation:
+     * success = 1.0 if out_sum >= 0
+     *           0.0 otherwise
+     */
+    fprintf(
+        file,
+        "  %%step_cmp = fcmp oge double %%out_sum, 0.000000e+00\n"
+    );
+
+    fprintf(
+        file,
+        "  %%success = select i1 %%step_cmp, double 1.000000e+00, double 0.000000e+00\n"
+    );
+
+    /*
+     * Print final prediction.
+     */
+    fprintf(
+        file,
+        "  call i32 (ptr, ...) @printf(ptr @.fmt, double %%success)\n"
+    );
+
     fprintf(file, "  ret i32 0\n");
     fprintf(file, "}\n");
 
