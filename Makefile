@@ -25,7 +25,11 @@ test: test-aot test-errors
 
 test-aot: plainml
 	@set -e; \
-	for f in examples/test.plain examples/multi_neuron.plain examples/deep_network.plain; do \
+	for f in \
+	examples/test.plain \
+	examples/multi_neuron.plain \
+	examples/deep_network.plain \
+	examples/pretrained_student_success.plain; do \
 		echo "===== Testing $$f ====="; \
 		./plainml < $$f; \
 		clang output.ll -o plainml_aot; \

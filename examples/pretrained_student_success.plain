@@ -1,0 +1,114 @@
+network pretrained_student_success {
+
+    inputs {
+        first_grade;
+        second_grade;
+        study_time;
+        past_failures;
+        absences;
+        wants_higher_education;
+        school_support;
+        family_support;
+    }
+
+    layer hidden activation relu {
+
+        neuron hidden_1 {
+            first_grade weight -0.7170084166;
+            second_grade weight -2.1582850401;
+            study_time weight 2.4638775439;
+            past_failures weight -1.3243061884;
+            absences weight -0.3658414919;
+            wants_higher_education weight -2.1157171687;
+            school_support weight -7.4669295080;
+            family_support weight -3.1106494310;
+            bias 33.1698424640;
+        }
+
+        neuron hidden_2 {
+            first_grade weight 1.2529806706;
+            second_grade weight 0.9475554037;
+            study_time weight 0.9110277837;
+            past_failures weight -3.1623387183;
+            absences weight 0.1554108807;
+            wants_higher_education weight -5.8109047352;
+            school_support weight 0.5698516942;
+            family_support weight 6.5724008539;
+            bias -22.0970683364;
+        }
+
+        neuron hidden_3 {
+            first_grade weight -0.2642565494;
+            second_grade weight -1.5540667607;
+            study_time weight 0.4625966792;
+            past_failures weight 0.8778438337;
+            absences weight -0.7257669442;
+            wants_higher_education weight -4.0066653766;
+            school_support weight -11.4892485129;
+            family_support weight -2.3258946371;
+            bias 24.9509258707;
+        }
+
+        neuron hidden_4 {
+            first_grade weight -0.3659945110;
+            second_grade weight -1.5264416417;
+            study_time weight -2.3198120229;
+            past_failures weight 0.0802174938;
+            absences weight -0.1027746223;
+            wants_higher_education weight 4.9774508837;
+            school_support weight -5.3222362545;
+            family_support weight 4.6119027775;
+            bias 16.2660327811;
+        }
+
+        neuron hidden_5 {
+            first_grade weight -2.4187992835;
+            second_grade weight -1.3484786921;
+            study_time weight 0.4377174583;
+            past_failures weight -2.6695328117;
+            absences weight 0.0486144892;
+            wants_higher_education weight 3.1605098153;
+            school_support weight -4.4566694920;
+            family_support weight 4.0311126270;
+            bias 36.2538170237;
+        }
+
+        neuron hidden_6 {
+            first_grade weight -2.2957057708;
+            second_grade weight 1.1184073233;
+            study_time weight -0.9083160591;
+            past_failures weight -2.1901653969;
+            absences weight 0.1600856150;
+            wants_higher_education weight 6.8435375243;
+            school_support weight -1.3657258135;
+            family_support weight 3.1772876381;
+            bias 5.8390190538;
+        }
+
+    }
+
+    layer output activation step {
+
+        neuron success {
+            hidden_1 weight 5.1624704169;
+            hidden_2 weight 4.9254646283;
+            hidden_3 weight -4.3894682752;
+            hidden_4 weight 4.1678646547;
+            hidden_5 weight -6.2857470937;
+            hidden_6 weight 5.2267267599;
+            bias 1.1882156254;
+        }
+
+    }
+}
+
+predict pretrained_student_success with {
+    first_grade = 15.0000000000;
+    second_grade = 16.0000000000;
+    study_time = 2.0000000000;
+    past_failures = 0.0000000000;
+    absences = 2.0000000000;
+    wants_higher_education = 1.0000000000;
+    school_support = 0.0000000000;
+    family_support = 1.0000000000;
+}

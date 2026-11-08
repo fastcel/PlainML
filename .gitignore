@@ -10,3 +10,6 @@ output.ll
 *.s
 .vscode/
 *~
+# Optional model-training environment
+.venv/
+data/
