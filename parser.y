@@ -453,7 +453,7 @@ void generate_llvm_ir(const char *filename)
     }
 
     /*
-     * Make sure every input has a prediction value.
+     * Make sure every declared input received a prediction value.
      */
     for (int i = 0; i < input_count; i++) {
         if (!input_value_set[i]) {
@@ -468,23 +468,59 @@ void generate_llvm_ir(const char *filename)
         }
     }
 
+    Layer *output_layer = &layers[layer_count - 1];
+
+    /* ---------- LLVM Module Header ---------- */
+
     fprintf(file, "; PlainML generated LLVM IR\n");
     fprintf(file, "source_filename = \"plainml\"\n\n");
 
     fprintf(file, "declare i32 @printf(ptr, ...)\n\n");
 
+    /*
+     * "  %s = %f\\n\\0" is 11 bytes:
+     * two spaces + %s + space + = + space + %f + newline + null.
+     */
     fprintf(
         file,
         "@.fmt = private unnamed_addr constant "
-        "[16 x i8] c\"Prediction: %%f\\0A\\00\"\n\n"
+        "[11 x i8] c\"  %%s = %%f\\0A\\00\"\n"
     );
+
+    fprintf(
+        file,
+        "@.header = private unnamed_addr constant "
+        "[13 x i8] c\"Prediction:\\0A\\00\"\n"
+    );
+
+    /*
+     * Output-neuron names are LLVM global string constants.
+     * Globals must be emitted before the main function.
+     */
+    for (int i = 0; i < output_layer->neuron_count; i++) {
+        const char *name = output_layer->neurons[i].name;
+        int name_length = (int)strlen(name) + 1;
+
+        fprintf(
+            file,
+            "@.out_name_%d = private unnamed_addr constant "
+            "[%d x i8] c\"%s\\00\"\n",
+            i,
+            name_length,
+            name
+        );
+    }
+
+    fprintf(file, "\n");
+
+    /* ---------- LLVM main ---------- */
 
     fprintf(file, "define i32 @main() {\n");
     fprintf(file, "entry:\n");
 
     /*
      * Stores the LLVM register containing the output
-     * of every neuron.
+     * of every generated neuron.
      */
     char neuron_output_registers[MAX_LAYERS][MAX_NEURONS][32];
 
@@ -504,7 +540,7 @@ void generate_llvm_ir(const char *filename)
             char sum_register[32] = "";
 
             /*
-             * Generate every:
+             * Generate each weighted connection:
              *
              * source_value * weight
              */
@@ -516,8 +552,8 @@ void generate_llvm_ir(const char *filename)
                 char source_operand[64];
 
                 /*
-                 * First layer reads source values
-                 * from prediction inputs.
+                 * First layer reads values directly from
+                 * the prediction inputs in the PlainML source.
                  */
                 if (i == 0) {
 
@@ -547,8 +583,8 @@ void generate_llvm_ir(const char *filename)
                 }
 
                 /*
-                 * Later layers read the LLVM register
-                 * produced by a neuron in the previous layer.
+                 * Later layers use the LLVM register produced
+                 * by the referenced neuron in the previous layer.
                  */
                 else {
 
@@ -562,7 +598,6 @@ void generate_llvm_ir(const char *filename)
                         n < previous_layer->neuron_count;
                         n++
                     ) {
-
                         if (
                             strcmp(
                                 previous_layer->neurons[n].name,
@@ -595,7 +630,7 @@ void generate_llvm_ir(const char *filename)
                 }
 
                 /*
-                 * Generate multiplication.
+                 * multiplication = source * weight
                  */
                 char multiply_register[32];
 
@@ -615,9 +650,8 @@ void generate_llvm_ir(const char *filename)
                 );
 
                 /*
-                 * First connection:
-                 *
-                 * sum = multiplication + bias
+                 * Start the running sum with the first
+                 * multiplication plus the neuron's bias.
                  */
                 if (k == 0) {
 
@@ -638,9 +672,7 @@ void generate_llvm_ir(const char *filename)
                 }
 
                 /*
-                 * Remaining connections:
-                 *
-                 * sum = previous_sum + multiplication
+                 * Add all remaining weighted connections.
                  */
                 else {
 
@@ -669,7 +701,7 @@ void generate_llvm_ir(const char *filename)
             }
 
             /*
-             * Apply the layer activation.
+             * Apply this layer's activation function.
              */
             char compare_register[32];
             char output_register[32];
@@ -730,7 +762,8 @@ void generate_llvm_ir(const char *filename)
             }
 
             /*
-             * Remember where this neuron's result lives.
+             * Remember which LLVM register contains this
+             * neuron's output so the next layer can use it.
              */
             strcpy(
                 neuron_output_registers[i][j],
@@ -739,18 +772,20 @@ void generate_llvm_ir(const char *filename)
         }
     }
 
-    /*
-     * Print every neuron in the final layer.
-     */
-    Layer *output_layer =
-        &layers[layer_count - 1];
+    /* ---------- Print Final Prediction ---------- */
+
+    fprintf(
+        file,
+        "  call i32 (ptr, ...) @printf(ptr @.header)\n"
+    );
 
     for (int i = 0; i < output_layer->neuron_count; i++) {
 
         fprintf(
             file,
             "  call i32 (ptr, ...) "
-            "@printf(ptr @.fmt, double %s)\n",
+            "@printf(ptr @.fmt, ptr @.out_name_%d, double %s)\n",
+            i,
             neuron_output_registers[layer_count - 1][i]
         );
     }
