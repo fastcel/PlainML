@@ -16,6 +16,7 @@ int find_input_index(const char *name);
 int neuron_exists_in_layer(int layer_index, const char *name);
 int get_current_layer_index(void);
 int source_is_valid(const char *source_name);
+void generate_llvm_ir(const char *filename);
 
 /* ---------- Inputs ---------- */
 
@@ -442,6 +443,28 @@ void run_network(void)
     }
 }
 
+void generate_llvm_ir(const char *filename)
+{
+    FILE *file = fopen(filename, "w");
+
+    if (file == NULL) {
+        fprintf(stderr, "Error: could not create LLVM IR file\n");
+        exit(1);
+    }
+
+    fprintf(file, "; PlainML generated LLVM IR\n");
+    fprintf(file, "source_filename = \"plainml\"\n\n");
+
+    fprintf(file, "define i32 @main() {\n");
+    fprintf(file, "entry:\n");
+    fprintf(file, "  ret i32 0\n");
+    fprintf(file, "}\n");
+
+    fclose(file);
+
+    printf("\nGenerated LLVM IR: %s\n", filename);
+}
+
 /* ---------- Memory Cleanup ---------- */
 
 void cleanup_network(char *name)
@@ -644,7 +667,7 @@ predict_statement:
         free($2);
 
         print_prediction_inputs();
-        run_network();
+        generate_llvm_ir("output.ll");
     }
 ;
 
