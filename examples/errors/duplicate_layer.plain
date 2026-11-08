@@ -1,0 +1,26 @@
+network duplicate_layer_test {
+
+    inputs {
+        x;
+    }
+
+    layer hidden activation relu {
+
+        neuron a {
+            x weight 1.00;
+            bias 0.00;
+        }
+    }
+
+    layer hidden activation step {
+
+        neuron result {
+            a weight 1.00;
+            bias 0.00;
+        }
+    }
+}
+
+predict duplicate_layer_test with {
+    x = 1.00;
+}

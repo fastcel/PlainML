@@ -13,7 +13,9 @@ void yyerror(const char *s);
 
 int input_exists(const char *name);
 int find_input_index(const char *name);
+int layer_exists(const char *name);
 int neuron_exists_in_layer(int layer_index, const char *name);
+int neuron_exists_in_current_layer(const char *name);
 int get_current_layer_index(void);
 int source_is_valid(const char *source_name);
 void generate_llvm_ir(const char *filename);
@@ -28,8 +30,20 @@ int input_count = 0;
 
 void add_input(char *name)
 {
+    if (input_exists(name)) {
+        fprintf(
+            stderr,
+            "Semantic error: input '%s' is declared more than once\n",
+            name
+        );
+
+        free(name);
+        exit(1);
+    }
+
     if (input_count >= MAX_INPUTS) {
         fprintf(stderr, "Error: too many inputs\n");
+        free(name);
         exit(1);
     }
 
@@ -98,8 +112,20 @@ const char *activation_name(ActivationType activation)
 
 void start_layer(char *name, ActivationType activation)
 {
+    if (layer_exists(name)) {
+        fprintf(
+            stderr,
+            "Semantic error: layer '%s' is declared more than once\n",
+            name
+        );
+
+        free(name);
+        exit(1);
+    }
+
     if (layer_count >= MAX_LAYERS) {
         fprintf(stderr, "Error: too many layers\n");
+        free(name);
         exit(1);
     }
 
@@ -116,11 +142,26 @@ void start_neuron(char *name)
 {
     if (current_layer == NULL) {
         fprintf(stderr, "Error: neuron outside layer\n");
+        free(name);
+        exit(1);
+    }
+
+    if (neuron_exists_in_current_layer(name)) {
+        fprintf(
+            stderr,
+            "Semantic error: neuron '%s' is declared more than once "
+            "in layer '%s'\n",
+            name,
+            current_layer->name
+        );
+
+        free(name);
         exit(1);
     }
 
     if (current_layer->neuron_count >= MAX_NEURONS) {
         fprintf(stderr, "Error: too many neurons\n");
+        free(name);
         exit(1);
     }
 
@@ -1048,6 +1089,34 @@ int find_input_index(const char *name)
     }
 
     return -1;
+}
+
+int layer_exists(const char *name)
+{
+    for (int i = 0; i < layer_count; i++) {
+
+        if (strcmp(layers[i].name, name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int neuron_exists_in_current_layer(const char *name)
+{
+    if (current_layer == NULL) {
+        return 0;
+    }
+
+    for (int i = 0; i < current_layer->neuron_count; i++) {
+
+        if (strcmp(current_layer->neurons[i].name, name) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
 }
 
 int neuron_exists_in_layer(int layer_index, const char *name)

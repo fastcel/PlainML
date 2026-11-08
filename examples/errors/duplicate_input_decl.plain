@@ -1,0 +1,19 @@
+network duplicate_input {
+
+    inputs {
+        x;
+        x;
+    }
+
+    layer output activation step {
+
+        neuron result {
+            x weight 1.00;
+            bias 0.00;
+        }
+    }
+}
+
+predict duplicate_input with {
+    x = 1.00;
+}

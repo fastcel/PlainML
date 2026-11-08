@@ -34,7 +34,10 @@ test-errors: plainml
 	for f in \
 		examples/errors/unknown_input.plain \
 		examples/errors/missing_prediction_input.plain \
-		examples/errors/duplicate_prediction_input.plain; do \
+		examples/errors/duplicate_prediction_input.plain \
+		examples/errors/duplicate_input_decl.plain \
+		examples/errors/duplicate_layer.plain \
+		examples/errors/duplicate_neuron.plain; do \
 		echo "===== Expecting failure: $$f ====="; \
 		if ./plainml < $$f; then \
 			echo "ERROR: $$f should have failed"; \
@@ -44,6 +47,6 @@ test-errors: plainml
 		fi; \
 		echo; \
 	done
-	
+
 clean:
 	rm -f plainml parser.tab.c parser.tab.h lex.yy.c output.ll plainml_aot
