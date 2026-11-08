@@ -1,3 +1,5 @@
+.PHONY: plainml aot run-aot test test-aot test-errors clean
+
 plainml: parser.tab.c lex.yy.c
 	gcc parser.tab.c lex.yy.c -o plainml -lfl
 
@@ -18,6 +20,8 @@ aot: plainml
 
 run-aot:
 	./plainml_aot
+
+test: test-aot test-errors
 
 test-aot: plainml
 	@set -e; \
